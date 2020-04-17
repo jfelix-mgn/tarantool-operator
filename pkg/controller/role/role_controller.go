@@ -191,12 +191,47 @@ func (r *ReconcileRole) Reconcile(request reconcile.Request) (reconcile.Result, 
 			sts.Name = fmt.Sprintf("%s-%d", role.Name, i)
 			sts.Namespace = request.Namespace
 
-			if err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: sts.Namespace, Name: sts.Name}, sts); err != nil {
+			err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: sts.Namespace, Name: sts.Name}, sts)
+
+			if err == nil {
+				reqLogger.Info("ROLE SCALE", "Update exist StatefulSet", sts.GetName())
+				resourceVersion := sts.GetResourceVersion()
+				sts = CreateStatefulSetFromTemplate(fmt.Sprintf("%s-%d", role.Name, i), role, &template)
+				sts.SetResourceVersion(resourceVersion)
+				if err := controllerutil.SetControllerReference(role, sts, r.scheme); err != nil {
+					return reconcile.Result{}, err
+				}
+				if err := r.client.Update(context.TODO(), sts); err != nil {
+					return reconcile.Result{}, err
+				}
+			} else {
+				reqLogger.Info("ROLE SCALE", "Upscale StatefulSet", role.Name)
 				sts = CreateStatefulSetFromTemplate(fmt.Sprintf("%s-%d", role.Name, i), role, &template)
 				if err := controllerutil.SetControllerReference(role, sts, r.scheme); err != nil {
 					return reconcile.Result{}, err
 				}
 				if err := r.client.Create(context.TODO(), sts); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+		}
+	} else {
+		for i := 0; i < int(*role.Spec.NumReplicasets); i++ {
+			sts := &appsv1.StatefulSet{}
+			sts.Name = fmt.Sprintf("%s-%d", role.Name, i)
+			sts.Namespace = request.Namespace
+
+			err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: sts.Namespace, Name: sts.Name}, sts)
+
+			if err == nil {
+				reqLogger.Info("ROLE SCALE", "Update exist StatefulSet", sts.GetName())
+				resourceVersion := sts.GetResourceVersion()
+				sts = CreateStatefulSetFromTemplate(fmt.Sprintf("%s-%d", role.Name, i), role, &template)
+				sts.SetResourceVersion(resourceVersion)
+				if err := controllerutil.SetControllerReference(role, sts, r.scheme); err != nil {
+					return reconcile.Result{}, err
+				}
+				if err := r.client.Update(context.TODO(), sts); err != nil {
 					return reconcile.Result{}, err
 				}
 			}

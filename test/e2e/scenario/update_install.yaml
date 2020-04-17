@@ -1,0 +1,126 @@
+---
+apiVersion: tarantool.io/v1alpha1
+kind: ReplicasetTemplate
+metadata:
+  name: storage-template
+  labels:
+    tarantool.io/cluster-id: "examples-kv-cluster"
+    tarantool.io/replicaset-template: "storage-template"
+    tarantool.io/role: "storage"
+  annotations:
+    example.local/version: 0.0.2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      tarantool.io/pod-template: "storage-pod-template"
+  volumeClaimTemplates:
+  - metadata:
+      name: www 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+  template:
+    metadata:
+      labels:
+        tarantool.io/cluster-id: "examples-kv-cluster"
+        tarantool.io/pod-template: "storage-pod-template"
+      annotations:
+        example.local/version: 0.0.2
+    spec:
+      terminationGracePeriodSeconds: 10
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
+      containers:
+      - name: pim-storage
+        image: tarantool/tarantool-operator-examples-kv:0.0.2
+        volumeMounts:
+          - mountPath: "/var/lib/tarantool"
+            name: www
+        ports:
+          - containerPort: 3301
+          - containerPort: 8081
+        env:
+          - name: TARANTOOL_INSTANCE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: TARANTOOL_WORK_DIR
+            value: "/var/lib/tarantool"
+          - name: TARANTOOL_MEMTX_MEMORY
+            value: "33554432"
+          - name: TARANTOOL_LOG
+            value: "/dev/stdout"
+          - name: TARANTOOL_ADVERTISE_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: TARANTOOL_ADVERTISE_URI
+            value: "$(TARANTOOL_ADVERTISE_HOST).examples-kv-cluster:3301"
+---
+apiVersion: tarantool.io/v1alpha1
+kind: ReplicasetTemplate
+metadata:
+  name: router-template
+  labels:
+    tarantool.io/cluster-id: "examples-kv-cluster"
+    tarantool.io/replicaset-template: "router-template"
+    tarantool.io/role: "router"
+  annotations:
+    example.local/version: 0.0.2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      tarantool.io/pod-template: "router-pod-template"
+  volumeClaimTemplates:
+  - metadata:
+      name: www 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+  template:
+    metadata:
+      labels:
+        tarantool.io/cluster-id: "examples-kv-cluster"
+        tarantool.io/pod-template: "router-pod-template"
+      annotations:
+        example.local/version: 0.0.2
+    spec:
+      terminationGracePeriodSeconds: 10
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
+      containers:
+      - name: pim-router
+        image: tarantool/tarantool-operator-examples-kv:0.0.2
+        volumeMounts:
+          - mountPath: "/var/lib/tarantool"
+            name: www
+        ports:
+          - containerPort: 3301
+          - containerPort: 8081
+        env:
+          - name: TARANTOOL_INSTANCE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: TARANTOOL_WORK_DIR
+            value: "/var/lib/tarantool"
+          - name: TARANTOOL_MEMTX_MEMORY
+            value: "33554432"
+          - name: TARANTOOL_LOG
+            value: "/dev/stdout"
+          - name: TARANTOOL_ADVERTISE_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: TARANTOOL_ADVERTISE_URI
+            value: "$(TARANTOOL_ADVERTISE_HOST).examples-kv-cluster:3301"
